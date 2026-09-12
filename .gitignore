@@ -1,0 +1,34 @@
+# macOS
+.DS_Store
+._*
+
+# 의존성 / 빌드
+node_modules/
+dist/
+build/
+*.tsbuildinfo
+
+# 모델 가중치 (용량이 커서 저장소에 넣지 않는다. 받는 법은 docs/model_selection.md 참고)
+models/
+*.onnx
+*.onnx_data
+*.bin
+*.safetensors
+
+# 수집 원본 (라벨링 전 원시 데이터. 라벨링된 평가셋 data/labeled_comments_*.json 은 추적한다)
+data/raw/
+data/*.local.json
+
+# 로그 / 측정 산출물
+*.log
+bench/out/
+
+# 개인 계획/작업 문서 (저장소에 올리지 않는다)
+docs/plan/
+
+# 로컬 설정
+.env
+.env.*
+!.env.example
+.vscode/
+.idea/
