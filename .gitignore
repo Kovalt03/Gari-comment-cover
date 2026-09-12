@@ -23,8 +23,9 @@ data/*.local.json
 *.log
 bench/out/
 
-# 개인 계획/작업 문서 (저장소에 올리지 않는다)
+# 개인 계획 / 학습 문서 (저장소에 올리지 않는다)
 docs/plan/
+docs/study/
 
 # 로컬 설정
 .env
