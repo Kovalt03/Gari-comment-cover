@@ -128,16 +128,50 @@ interface SiteAdapter {
   reveal(entry: CommentEntry): void;
   collapse(entry: CommentEntry, reason: FilterReason): void;
 
-  // SPA 전환 통지. 유튜브는 영상 전환 시 문서를 다시 로드하지 않는다
+  // SPA 전환 통지. 유튜브는 영상 전환 시 문서를 다시 로드하지 않는다.
+  // 최초 로드 시에도 호출되므로 콜백은 여러 번 실행되어도 안전해야 한다
   onNavigate(cb: (pageId: string) => void): void;
+
+  // 사용자가 접힌 댓글을 펼치려 한 경우. 입력 이벤트 처리는 어댑터가 맡는다
+  onRevealRequest(cb: (entry: CommentEntry) => void): void;
 }
 
 interface CommentEntry {
   id: string;        // 사이트 내에서 안정적인 식별자
   text: string;
   el: Element;       // 어댑터 내부에서만 사용한다. 코어로 전달하지 않는다
+  isReply: boolean;
 }
 ```
+
+코어가 받는 것은 `{ id, text }`뿐이다. `el`은 어댑터 경계를 넘지 않는다.
+
+```typescript
+type Verdict =
+  | { kind: 'pass' }
+  | { kind: 'hide'; reason: FilterReason }
+  | { kind: 'unsure' };
+```
+
+파이프라인은 계층을 순서대로 호출하고, `unsure`가 아닌 첫 결과를 반환한다.
+끝까지 결정되지 않으면 `unsure`로 남고, 그 댓글은 접힌 상태를 유지한다.
+추측으로 펼치지 않는다.
+
+### 파일 배치
+
+```
+src/
+├── core/        사이트 무관. DOM을 다루지 않는다
+├── adapters/    사이트별 구현
+├── content.js   둘을 연결하고 관찰자를 돌린다
+└── hide.css
+```
+
+content script는 ES 모듈을 쓸 수 없다.
+번들러를 도입하기 전까지는 manifest의 `js` 배열에 파일을 나열하고
+전역 객체 하나(`globalThis.Gari`)를 공유한다.
+content script는 격리된 세계에서 실행되므로 이 전역이 페이지로 새지 않는다.
+번들러를 붙이는 시점에 `import`/`export`로 정리한다. (미결정 · 10절)
 
 `onNavigate`가 인터페이스에 포함된 이유는 유튜브가 영상을 바꿔도 문서를 다시 로드하지 않기 때문이다.
 전환을 감지하지 못하면 이전 영상의 판정 상태와 관찰자가 그대로 남는다.

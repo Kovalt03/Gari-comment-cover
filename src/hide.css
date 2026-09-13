@@ -1,0 +1,46 @@
+/*
+ * Declared in manifest content_scripts[].css, which is injected before the
+ * document is parsed and before Polymer builds the comment nodes. Keep it
+ * declarative: hiding from JS races with rendering.
+ *
+ * Covered is the default state. content.js adds .gari-revealed to open one.
+ */
+
+/* Children are hidden rather than the element itself, so ::before can draw the
+ * placeholder in its place. :not() is used instead of restoring display later —
+ * each Polymer element has a different default, so there is no safe value to
+ * restore to. */
+ytd-comment-thread-renderer:not(.gari-revealed) > * {
+  display: none !important;
+}
+
+ytd-comment-thread-renderer:not(.gari-revealed)::before {
+  content: "Covered comment — click to show";
+
+  display: block;
+  box-sizing: border-box;
+  margin: 8px 0;
+  padding: 12px 14px;
+
+  border: 1px solid var(--yt-spec-10-percent-layer, rgba(128, 128, 128, 0.2));
+  border-radius: 10px;
+  background: var(--yt-spec-badge-chip-background, rgba(128, 128, 128, 0.08));
+
+  color: var(--yt-spec-text-secondary, #888);
+  font-family: "Roboto", "Noto Sans KR", sans-serif;
+  font-size: 13px;
+  line-height: 1.4;
+
+  cursor: pointer;
+  user-select: none;
+}
+
+ytd-comment-thread-renderer:not(.gari-revealed):hover::before {
+  border-color: var(--yt-spec-text-secondary, #888);
+  color: var(--yt-spec-text-primary, #eee);
+}
+
+/* Replies sit one level in */
+ytd-comment-replies-renderer ytd-comment-thread-renderer:not(.gari-revealed)::before {
+  margin-left: 24px;
+}

@@ -1,0 +1,22 @@
+{
+  "manifest_version": 3,
+  "name": "Gari (demo)",
+  "version": "0.0.1",
+  "description": "Covers YouTube comments until you choose to see them.",
+  "content_scripts": [
+    {
+      "matches": [
+        "https://www.youtube.com/*"
+      ],
+      "css": [
+        "src/hide.css"
+      ],
+      "js": [
+        "src/core/pipeline.js",
+        "src/adapters/youtube.js",
+        "src/content.js"
+      ],
+      "run_at": "document_start"
+    }
+  ]
+}
