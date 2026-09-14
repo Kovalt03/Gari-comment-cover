@@ -1,0 +1,12 @@
+{
+  "name": "gari",
+  "private": true,
+  "description": "Covers YouTube comments until you choose to see them.",
+  "license": "MIT",
+  "scripts": {
+    "test": "node --test \"test/*.test.mjs\""
+  },
+  "devDependencies": {
+    "jsdom": "24.1.3"
+  }
+}
