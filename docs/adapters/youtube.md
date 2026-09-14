@@ -20,6 +20,7 @@
 | 대댓글 묶음 | `ytd-comment-replies-renderer` | 2026-09-13 |
 | 대댓글 더 보기 버튼 | `#more-replies-sub-thread button` | 2026-09-13 |
 | 추가 로드 센티널 | `ytd-comments#comments ytd-continuation-item-renderer` | 2026-09-13 |
+| 댓글 툴바 (피드백 버튼 삽입 위치) | `:scope > #comment-container #action-buttons #toolbar` | 2026-09-14 |
 
 전체 경로는 다음과 같다.
 
@@ -214,6 +215,36 @@ yt-page-data-updated
 
 다만 이건 한 번 관측한 결과다.
 정렬 변경이 항상 이렇게 동작하는지, 다른 영상에서도 같은지는 재확인이 필요하다. (검증 예정)
+
+### 2.8 툴바에 노드를 넣어도 유지된다
+
+피드백 버튼(`Hide`, `Looks fine`)은 확장이 유튜브 DOM에 직접 추가하는 첫 노드다.
+그 전까지는 CSS만 사용했기 때문에 Polymer와 충돌할 여지가 없었다.
+
+툴바 구조는 다음과 같다.
+
+```
+ytd-comment-view-model#comment
+  div#body > div#main
+    ytd-comment-engagement-bar#action-buttons
+      div#toolbar
+        ytd-toggle-button-renderer#like-button
+        span#vote-count-middle
+        ytd-toggle-button-renderer#dislike-button
+        div#creator-heart
+        ytd-button-renderer#reply-button-end
+        span.gari-actions                      <- 추가 (버튼 묶음)
+```
+
+`#toolbar` 끝에 버튼을 넣고 스크롤과 정렬 변경을 거친 뒤 확인했다.
+넣은 4개가 모두 남아 있었다.
+
+셀렉터에 `:scope > #comment-container`를 붙인 이유는 대댓글 때문이다.
+부모 댓글 요소 안에 대댓글의 툴바도 들어 있으므로, 범위를 좁히지 않으면 부모에서 대댓글 툴바를 잡는다.
+`Unverified` 표식의 CSS도 같은 이유로 `>`로 범위를 제한했다.
+
+좋아요를 누르는 등 툴바 자체가 다시 그려지는 경우는 비로그인 상태라 확인하지 못했다. (검증 예정)
+어댑터는 댓글을 펼칠 때마다 버튼 묶음을 다시 만든다. 사라졌다면 이때 복구된다.
 
 ## 3. 아직 확인하지 않은 것
 

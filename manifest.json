@@ -13,6 +13,9 @@
       ],
       "js": [
         "src/core/pipeline.js",
+        "src/core/feedback.js",
+        "src/core/metrics.js",
+        "src/core/dummy-filter.js",
         "src/adapters/youtube.js",
         "src/content.js"
       ],

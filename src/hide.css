@@ -3,8 +3,12 @@
  * document is parsed and before Polymer builds the comment nodes. Keep it
  * declarative: hiding from JS races with rendering.
  *
- * Covered is the default state. content.js adds .gari-revealed to open one.
+ * Covered is the default state. The adapter adds .gari-revealed to open a
+ * comment and data-gari-* attributes to describe it. Names must match
+ * src/adapters/youtube.js.
  */
+
+/* ---- Covered ---------------------------------------------------------- */
 
 /* Children are hidden rather than the element itself, so ::before can draw the
  * placeholder in its place. :not() is used instead of restoring display later —
@@ -14,6 +18,7 @@ ytd-comment-thread-renderer:not(.gari-revealed) > * {
   display: none !important;
 }
 
+/* Before a verdict arrives */
 ytd-comment-thread-renderer:not(.gari-revealed)::before {
   content: "Covered comment — click to show";
 
@@ -35,6 +40,18 @@ ytd-comment-thread-renderer:not(.gari-revealed)::before {
   user-select: none;
 }
 
+/* After a verdict: says why */
+ytd-comment-thread-renderer[data-gari-label]:not(.gari-revealed)::before {
+  content: attr(data-gari-label) " — click to show";
+}
+
+/* The pipeline did not finish, as opposed to a filter deciding */
+ytd-comment-thread-renderer[data-gari-reason="timeout"]:not(.gari-revealed)::before,
+ytd-comment-thread-renderer[data-gari-reason="error"]:not(.gari-revealed)::before {
+  border-color: rgba(204, 140, 0, 0.5);
+  color: #c80;
+}
+
 ytd-comment-thread-renderer:not(.gari-revealed):hover::before {
   border-color: var(--yt-spec-text-secondary, #888);
   color: var(--yt-spec-text-primary, #eee);
@@ -43,4 +60,57 @@ ytd-comment-thread-renderer:not(.gari-revealed):hover::before {
 /* Replies sit one level in */
 ytd-comment-replies-renderer ytd-comment-thread-renderer:not(.gari-revealed)::before {
   margin-left: 24px;
+}
+
+/* ---- Revealed --------------------------------------------------------- */
+
+/* No layer objected, but none confirmed either. Scoped with > so a parent's
+ * mark does not leak into its replies. */
+ytd-comment-thread-renderer.gari-revealed[data-gari-unverified] > #comment-container #content-text::before {
+  content: "Unverified";
+
+  display: inline-block;
+  margin-right: 6px;
+  padding: 0 6px;
+
+  border: 1px solid rgba(204, 140, 0, 0.6);
+  border-radius: 4px;
+
+  color: #c80;
+  font-size: 11px;
+  line-height: 16px;
+  vertical-align: 1px;
+}
+
+/* Inserted into the comment toolbar by the adapter */
+.gari-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-left: 8px;
+}
+
+.gari-actions > button {
+  height: 32px;
+  padding: 0 12px;
+
+  border: 0;
+  border-radius: 16px;
+  background: transparent;
+
+  color: var(--yt-spec-text-secondary, #888);
+  font-family: "Roboto", "Noto Sans KR", sans-serif;
+  font-size: 13px;
+
+  cursor: pointer;
+}
+
+.gari-actions > button:hover:not([disabled]) {
+  background: var(--yt-spec-badge-chip-background, rgba(128, 128, 128, 0.15));
+  color: var(--yt-spec-text-primary, #eee);
+}
+
+.gari-actions > button[disabled] {
+  cursor: default;
+  opacity: 0.6;
 }
