@@ -15,9 +15,9 @@ models/
 *.bin
 *.safetensors
 
-# 수집 원본 (라벨링 전 원시 데이터. 라벨링된 평가셋 data/labeled_comments_*.json 은 추적한다)
-data/raw/
-data/*.local.json
+# 수집한 댓글과 라벨링 결과. 다른 사람이 쓴 글이라 저장소에 올리지 않는다.
+# 공개하는 것은 평가 리포트의 수치뿐이다 (docs/PRIVACY.md 8절)
+data/
 
 # 로그 / 측정 산출물
 *.log

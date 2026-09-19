@@ -13,13 +13,25 @@
       ],
       "js": [
         "src/core/pipeline.js",
+        "src/core/normalize.js",
         "src/core/feedback.js",
         "src/core/metrics.js",
+        "src/core/collector.js",
         "src/core/dummy-filter.js",
         "src/adapters/youtube.js",
         "src/content.js"
       ],
       "run_at": "document_start"
+    },
+    {
+      "matches": [
+        "https://www.youtube.com/*"
+      ],
+      "js": [
+        "src/adapters/youtube-page.js"
+      ],
+      "run_at": "document_start",
+      "world": "MAIN"
     }
   ]
 }

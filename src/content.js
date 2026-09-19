@@ -18,6 +18,7 @@
   let observer = null;
   let watcher = null;
   let epoch = 0; // bumped on navigation; see handle()
+  let video = null; // current video info, for collection only
 
   const verdicts = new WeakMap(); // element -> last pipeline verdict
   const userDecided = new WeakSet(); // elements the user covered, opened, or marked
@@ -62,6 +63,7 @@
     if (startedIn !== epoch) return;
 
     verdicts.set(entry.el, verdict);
+    collect(entry);
 
     // A late verdict must not undo what the user just did to this comment.
     if (!userDecided.has(entry.el)) apply(entry, verdict);
@@ -76,6 +78,38 @@
     );
     if (verdict.reason === Reason.ERROR) log('layer error:', verdict.detail);
   }
+
+  /* Development-only. The collector stores what the pipeline just saw, so the
+   * dataset and the running filter share one extraction path. */
+  function collect(entry) {
+    if (!Gari.collector?.enabled) return false;
+    return Gari.collector.add(
+      { text: entry.text, isReply: entry.isReply, ...adapter.metaOf(entry) },
+      video,
+    );
+  }
+
+  async function refreshVideo() {
+    video = await adapter.getVideoInfo();
+  }
+
+  /* Comments already on screen were processed before collection was switched
+   * on, so the collector asks for a sweep. Failures here are silent otherwise:
+   * this runs detached from the start() call. */
+  Gari.collector?.onStart(async () => {
+    try {
+      const entries = adapter.listComments();
+      log('collector sweep: found', entries.length, 'on screen');
+
+      if (!video) await refreshVideo();
+      let added = 0;
+      for (const entry of entries) if (collect(entry)) added += 1;
+
+      log('collector sweep: added', added, 'video =', video?.videoId ?? 'none');
+    } catch (err) {
+      log('collector sweep failed:', err);
+    }
+  });
 
   function startObserving() {
     const root = adapter.getObserverRoot();
@@ -115,6 +149,7 @@
     log('navigate. reset state, previous comments:', seen.size);
     seen = new Set();
     epoch++; // invalidates verdicts still in flight
+    refreshVideo();
     if (!observer) waitForRoot();
   });
 
@@ -153,5 +188,6 @@
   });
 
   log('loaded. readyState =', document.readyState);
+  refreshVideo();
   waitForRoot();
 })();

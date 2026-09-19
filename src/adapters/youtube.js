@@ -21,7 +21,15 @@ globalThis.Gari = globalThis.Gari || {};
     repliesRoot: 'ytd-comment-replies-renderer',
     // Scoped to the thread's own comment so a parent never picks up a reply's toolbar
     toolbar: ':scope > #comment-container #action-buttons #toolbar',
+    // Collection only. Both are display strings: "31만", "1년 전". YouTube does
+    // not put exact counts or absolute times in the DOM.
+    votes: ':scope > #comment-container #vote-count-middle',
+    published: ':scope > #comment-container #published-time-text a',
   };
+
+  // Matches src/adapters/youtube-page.js
+  const PAGE_REQUEST = 'gari:video-request';
+  const PAGE_REPLY = 'gari:video';
 
   // Class and attribute names below must match hide.css
   const REVEALED_CLASS = 'gari-revealed';
@@ -128,6 +136,12 @@ globalThis.Gari = globalThis.Gari || {};
      *   unverified: mark the text as not confirmed by any layer
      *   offerFine: show the "Looks fine" button next to "Hide"
      */
+    // Every comment currently in the DOM, ignoring the seen marker. For the
+    // collector's sweep; the pipeline uses extractComments instead.
+    listComments() {
+      return [...document.querySelectorAll(SELECTORS.comment)].map(toEntry);
+    },
+
     reveal(entry, { unverified = false, offerFine = false } = {}) {
       const { el } = entry;
       el.removeAttribute(ATTR.reason);
@@ -154,6 +168,34 @@ globalThis.Gari = globalThis.Gari || {};
       el.removeAttribute(ATTR.unverified);
       el.setAttribute(ATTR.reason, reason);
       el.setAttribute(ATTR.label, LABELS[reason] ?? 'Covered');
+    },
+
+    // Collection only: approximate, locale-dependent display strings.
+    metaOf(entry) {
+      return {
+        likesText: entry.el.querySelector(SELECTORS.votes)?.textContent?.trim() ?? '',
+        agoText: entry.el.querySelector(SELECTORS.published)?.textContent?.trim() ?? '',
+      };
+    },
+
+    /* Asks the page-world script for the current video. The page could reply
+     * with anything, so this is used for collection, never for a verdict. */
+    getVideoInfo(timeoutMs = 1000) {
+      return new Promise((resolve) => {
+        const done = (video) => {
+          window.removeEventListener('message', onMessage);
+          clearTimeout(timer);
+          resolve(video);
+        };
+        const onMessage = (event) => {
+          if (event.source !== window || event.data?.type !== PAGE_REPLY) return;
+          done(event.data.video ?? null);
+        };
+        const timer = setTimeout(() => done(null), timeoutMs);
+
+        window.addEventListener('message', onMessage);
+        window.postMessage({ type: PAGE_REQUEST }, '*');
+      });
     },
 
     // Fires on first load as well as on video changes, so handlers must be
