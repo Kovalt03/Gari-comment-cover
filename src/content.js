@@ -96,6 +96,69 @@
   /* Comments already on screen were processed before collection was switched
    * on, so the collector asks for a sweep. Failures here are silent otherwise:
    * this runs detached from the start() call. */
+  /* Scrolls to the end of the loaded comments so YouTube fetches the next page.
+   *
+   * What matters is that the viewport travels. Measured on a live page: walking
+   * down over several frames, or a smooth scroll, or stepping back and coming
+   * down again all pull in the next twenty comments. Landing on the spot in one
+   * jump does not, and neither do synthetic wheel or scroll events. An earlier
+   * version called scrollIntoView on the last comment, which moved almost
+   * nothing once the page was already near the end, and so loaded nothing.
+   *
+   * The continuation marker is not a scroll target either: it measures 0x0 with
+   * a null offsetParent. It only tells us more comments exist. */
+  Gari.collector?.onAutoScroll(async ({ pauseMs = 1500, quietRounds = 4, maxRounds = 400 } = {}) => {
+    const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+    const frame = () => new Promise((resolve) => requestAnimationFrame(resolve));
+
+    if (document.visibilityState !== 'visible') {
+      log('auto scroll: tab is not visible, comments will not load');
+    }
+    if (!document.hasFocus()) {
+      log('auto scroll: page has no focus. Click the page; the devtools console holds it otherwise');
+    }
+
+    // Back up a little, then walk down. The step back matters on later rounds,
+    // when the page is already sitting at the bottom and has nowhere to travel.
+    async function travel() {
+      window.scrollBy(0, -600);
+      await frame();
+      for (let i = 0; i < 30; i++) {
+        window.scrollBy(0, 300);
+        await frame();
+      }
+    }
+
+    let count = adapter.listComments().length;
+    let quiet = 0;
+    let rounds = 0;
+    let stalledWithMarker = false;
+
+    for (; rounds < maxRounds; rounds++) {
+      if (!Gari.collector.scrolling) break; // stopScroll()
+      if (Gari.collector.isVideoFull(video?.videoId)) break;
+
+      await travel();
+      await sleep(pauseMs);
+
+      const now = adapter.listComments().length;
+      if (now > count) {
+        count = now;
+        quiet = 0;
+      } else if (++quiet >= quietRounds) {
+        // A marker still on the page means more comments exist and simply are
+        // not arriving, which is different from having reached the end.
+        stalledWithMarker = !!adapter.getContinuationMarker();
+        break;
+      }
+    }
+
+    const result = { rounds, onPage: count, stalledWithMarker, ...Gari.collector.stats() };
+    log('auto scroll done', result);
+    if (stalledWithMarker) log('auto scroll: more comments exist but stopped arriving. Scroll by hand.');
+    return result;
+  });
+
   Gari.collector?.onStart(async () => {
     try {
       const entries = adapter.listComments();

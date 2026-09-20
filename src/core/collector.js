@@ -28,6 +28,8 @@ globalThis.Gari = globalThis.Gari || {};
 
   let enabled = false;
   let onStartCb = null;
+  let onAutoScrollCb = null;
+  let scrolling = false;
   const comments = new Map(); // normalized text -> record
   const videos = new Map(); // videoId -> video info
   const perVideo = new Map(); // videoId -> count
@@ -64,6 +66,11 @@ globalThis.Gari = globalThis.Gari || {};
     });
     if (videoId) perVideo.set(videoId, (perVideo.get(videoId) ?? 0) + 1);
     return true;
+  }
+
+  // Lets the scroller stop instead of paging through comments that will be dropped
+  function isVideoFull(videoId) {
+    return !!videoId && (perVideo.get(videoId) ?? 0) >= config.perVideoLimit;
   }
 
   function stats() {
@@ -117,6 +124,10 @@ globalThis.Gari = globalThis.Gari || {};
     config,
     add,
     stats,
+    isVideoFull,
+    get scrolling() {
+      return scrolling;
+    },
     toJSON,
     save,
     get enabled() {
@@ -126,6 +137,32 @@ globalThis.Gari = globalThis.Gari || {};
      * before it was on, so something has to go back for them. */
     onStart(cb) {
       onStartCb = cb;
+    },
+
+    /* Scrolling belongs to the adapter side; the core only holds the handle.
+     * YouTube loads about twenty comments per page, so reaching a few hundred by
+     * hand means hundreds of scrolls. */
+    onAutoScroll(cb) {
+      onAutoScrollCb = cb;
+    },
+    async autoScroll(options) {
+      if (!onAutoScrollCb) {
+        console.warn('[gari] no scroller registered');
+        return null;
+      }
+      if (scrolling) {
+        console.warn('[gari] already scrolling');
+        return null;
+      }
+      scrolling = true;
+      try {
+        return await onAutoScrollCb(options ?? {});
+      } finally {
+        scrolling = false;
+      }
+    },
+    stopScroll() {
+      scrolling = false;
     },
     start() {
       enabled = true;

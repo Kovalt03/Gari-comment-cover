@@ -25,6 +25,7 @@ globalThis.Gari = globalThis.Gari || {};
     // not put exact counts or absolute times in the DOM.
     votes: ':scope > #comment-container #vote-count-middle',
     published: ':scope > #comment-container #published-time-text a',
+    continuation: 'ytd-comments#comments ytd-continuation-item-renderer',
   };
 
   // Matches src/adapters/youtube-page.js
@@ -136,6 +137,12 @@ globalThis.Gari = globalThis.Gari || {};
      *   unverified: mark the text as not confirmed by any layer
      *   offerFine: show the "Looks fine" button next to "Hide"
      */
+    /* Signals that more comments exist. Not a scroll target: it measures 0x0
+     * with a null offsetParent, so scrolling to it moves nothing. */
+    getContinuationMarker() {
+      return document.querySelector(SELECTORS.continuation);
+    },
+
     // Every comment currently in the DOM, ignoring the seen marker. For the
     // collector's sweep; the pipeline uses extractComments instead.
     listComments() {

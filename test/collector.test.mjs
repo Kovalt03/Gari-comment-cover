@@ -72,6 +72,21 @@ test('a capped video still counts repeats of text already stored', () => {
   assert.deepEqual([unique, total], [1, 2]);
 });
 
+test('isVideoFull reports when the cap is reached', () => {
+  collector.config.perVideoLimit = 2;
+  assert.equal(collector.isVideoFull('v1'), false);
+  collector.add({ text: 'one' }, video('v1'));
+  collector.add({ text: 'two' }, video('v1'));
+  assert.equal(collector.isVideoFull('v1'), true);
+  assert.equal(collector.isVideoFull('v2'), false);
+  assert.equal(collector.isVideoFull(null), false); // no video, never full
+});
+
+test('autoScroll refuses politely when no scroller is registered', async () => {
+  assert.equal(await collector.autoScroll(), null);
+  assert.equal(collector.scrolling, false);
+});
+
 test('output keeps the original text, not the normalized key', () => {
   collector.add({ text: '  띄어쓰기   그대로  ' }, video('v1'));
   const [row] = JSON.parse(collector.toJSON()).comments;
