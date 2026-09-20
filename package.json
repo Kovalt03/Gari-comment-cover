@@ -4,7 +4,9 @@
   "description": "Covers YouTube comments until you choose to see them.",
   "license": "MIT",
   "scripts": {
-    "test": "node --test \"test/*.test.mjs\""
+    "test": "node --test \"test/*.test.mjs\"",
+    "label": "node tools/label/server.mjs",
+    "label:import": "node tools/label/import.mjs"
   },
   "devDependencies": {
     "jsdom": "24.1.3"

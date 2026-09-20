@@ -1,0 +1,214 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<title>Gari 라벨링</title>
+<style>
+  :root {
+    color-scheme: light dark;
+    --bg: #fbfbfa; --fg: #1c1c1a; --muted: #6b6b66;
+    --line: rgba(120,120,110,.25); --card: #fff; --accent: #4a9;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg: #16171a; --fg: #e8e8e6; --muted: #8b8d92; --card: #1e2024; --line: rgba(160,160,170,.2); }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--fg);
+    font: 15px/1.6 -apple-system, "Apple SD Gothic Neo", "Noto Sans KR", sans-serif;
+    display: flex; justify-content: center; padding: 32px 20px 64px;
+  }
+  main { width: 100%; max-width: 620px; }
+
+  header { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; margin-bottom: 6px; }
+  .video { color: var(--muted); font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .video b { color: var(--fg); font-weight: 600; }
+  .count { color: var(--muted); font-size: 13px; font-variant-numeric: tabular-nums; white-space: nowrap; }
+
+  .bar { height: 3px; background: var(--line); border-radius: 2px; overflow: hidden; margin-bottom: 20px; }
+  .bar div { height: 100%; background: var(--accent); width: 0; transition: width .2s; }
+
+  .comment {
+    background: var(--card); border: 1px solid var(--line); border-radius: 12px;
+    padding: 20px; font-size: 17px; line-height: 1.65; white-space: pre-wrap;
+    word-break: break-word; min-height: 96px;
+  }
+  .meta { color: var(--muted); font-size: 12px; margin: 8px 2px 22px; }
+
+  .keys { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+  .keys button { padding: 14px 4px; white-space: nowrap; }
+  .legend { color: var(--muted); font-size: 12px; margin-top: 10px; }
+  button {
+    font: inherit; color: var(--fg); background: var(--card);
+    border: 1px solid var(--line); border-radius: 10px; padding: 12px 6px; cursor: pointer;
+  }
+  button:hover { border-color: var(--accent); }
+  button b { display: block; color: var(--muted); font-size: 11px; font-weight: 600; }
+  .toggles { display: flex; gap: 8px; margin-top: 8px; }
+  .toggles button { flex: 1; }
+  button.on { border-color: #c80; color: #c80; }
+
+  footer { margin-top: 22px; color: var(--muted); font-size: 12px; display: flex; justify-content: space-between; }
+  .done { text-align: center; padding: 60px 0; color: var(--muted); }
+  .error {
+    background: #c33; color: #fff; border-radius: 10px;
+    padding: 12px 14px; margin-bottom: 14px; font-size: 13px;
+  }
+  .error code { background: rgba(0,0,0,.25); padding: 1px 6px; border-radius: 4px; }
+</style>
+</head>
+<body>
+<main>
+  <div class="error" id="error" hidden></div>
+  <header>
+    <div class="video" id="video"></div>
+    <div class="count" id="count"></div>
+  </header>
+  <div class="bar"><div id="fill"></div></div>
+
+  <div class="comment" id="text">불러오는 중…</div>
+  <div class="meta" id="meta"></div>
+
+  <div class="keys" id="keys"></div>
+  <div class="legend" id="legend"></div>
+  <div class="toggles">
+    <button id="obf">우회 표기 <b>U</b></button>
+    <button id="undo">되돌리기 <b>Z</b></button>
+  </div>
+
+  <footer>
+    <span id="dist"></span>
+    <span>숫자키로 라벨 · U 우회 표기 · Z 되돌리기</span>
+  </footer>
+</main>
+
+<script>
+/* Order matters: when a comment fits more than one, take the first. A political
+ * comment full of insults is toxic, not politics. */
+const LABELS = [
+  { key: 'ad', ko: '광고', hint: '홍보·링크 유도' },
+  { key: 'toxic', ko: '욕설', hint: '공격·혐오·싸움' },
+  { key: 'spoiler', ko: '스포', hint: '스포일러' },
+  { key: 'politics', ko: '정치', hint: '시사·진영' },
+  { key: 'noise', ko: '무의미', hint: '1등·ㅋㅋ·도배' },
+  { key: 'unwanted', ko: '기타', hint: '그 외 보기싫음' },
+  { key: 'neutral', ko: '무해', hint: '' },
+  { key: 'ambiguous', ko: '애매', hint: '판단 어려움' },
+];
+
+const el = (id) => document.getElementById(id);
+let queue = [];
+let at = 0;
+let obfuscated = false;
+let history = [];
+let stats = {};
+
+el('keys').innerHTML = LABELS.map((l, i) =>
+  `<button data-label="${l.key}">${l.ko}<b>${i + 1}</b></button>`).join('');
+el('legend').textContent = LABELS.filter((l) => l.hint).map((l) => `${l.ko} ${l.hint}`).join(' · ');
+
+/* A dead server used to look like dead buttons: the fetch rejected, nothing
+ * was rendered, and the page sat there. Say so instead. */
+async function api(path, options) {
+  try {
+    const res = await fetch(path, options);
+    const body = await res.json();
+    if (!res.ok) throw new Error(body.error ?? res.statusText);
+    el('error').hidden = true;
+    return body;
+  } catch (err) {
+    el('error').innerHTML = err.message === 'Failed to fetch'
+      ? '서버에 연결할 수 없습니다. 터미널에서 <code>npm run label</code> 을 실행한 뒤 새로고침하세요.'
+      : `저장하지 못했습니다: ${escape(String(err.message))}`;
+    el('error').hidden = false;
+    return null;
+  }
+}
+
+async function load() {
+  const data = await api('/api/queue?limit=300');
+  if (!data) return;
+  queue = data.items;
+  at = 0;
+  stats = data;
+  render();
+}
+
+function render() {
+  const item = queue[at];
+  el('count').textContent = `${stats.labeled ?? 0} / ${stats.total ?? 0}`;
+  el('fill').style.width = `${((stats.labeled ?? 0) / (stats.total || 1)) * 100}%`;
+  el('dist').textContent = (stats.byLabel ?? [])
+    .map((r) => `${LABELS.find((l) => l.key === r.label)?.ko ?? r.label} ${r.n}`).join(' · ');
+
+  if (!item) {
+    el('video').textContent = '';
+    el('text').innerHTML = '<div class="done">남은 댓글이 없습니다.</div>';
+    el('meta').textContent = '';
+    return;
+  }
+  el('video').innerHTML = `${item.video.category ? `[${item.video.category}] ` : ''}<b>${escape(item.video.title)}</b>`;
+  el('text').textContent = item.text;
+  el('meta').textContent = [item.isReply ? '답글' : null, item.likesText && `좋아요 ${item.likesText}`, item.agoText]
+    .filter(Boolean).join(' · ');
+  el('obf').classList.toggle('on', obfuscated);
+}
+
+const escape = (s) => s.replace(/[&<>]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' })[c]);
+
+async function label(name) {
+  const item = queue[at];
+  if (!item) return;
+
+  // Only move on once the label is actually stored
+  const saved = await api('/api/label', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ key: item.key, label: name, obfuscated }),
+  });
+  if (!saved) return;
+
+  history.push({ key: item.key, index: at });
+  stats = saved;
+  obfuscated = false;
+  at += 1;
+  if (at >= queue.length) return load();
+  render();
+}
+
+async function undo() {
+  const last = history.at(-1);
+  if (!last) return;
+  const saved = await api('/api/label', {
+    method: 'DELETE',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ key: last.key }),
+  });
+  if (!saved) return;
+
+  history.pop();
+  stats = saved;
+  at = last.index;
+  obfuscated = false;
+  render();
+}
+
+el('keys').addEventListener('click', (e) => {
+  const button = e.target.closest('[data-label]');
+  if (button) label(button.dataset.label);
+});
+el('obf').addEventListener('click', () => { obfuscated = !obfuscated; render(); });
+el('undo').addEventListener('click', undo);
+
+document.addEventListener('keydown', (e) => {
+  if (e.metaKey || e.ctrlKey || e.altKey) return;
+  const n = Number(e.key);
+  if (n >= 1 && n <= LABELS.length) { label(LABELS[n - 1].key); return; }
+  if (e.key === 'u' || e.key === 'U') { obfuscated = !obfuscated; render(); }
+  if (e.key === 'z' || e.key === 'Z') undo();
+});
+
+load();
+</script>
+</body>
+</html>
